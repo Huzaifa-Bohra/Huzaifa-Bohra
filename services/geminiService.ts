@@ -1,5 +1,5 @@
 import { GoogleGenAI, Modality, VideoGenerationReferenceImage, VideoGenerationReferenceType } from "@google/genai";
-import { AspectRatio, ImageStyle, ReferenceImage, HistoryItem } from '../types';
+import { AspectRatio, ImageStyle, ReferenceImage, HistoryItem, OutputType } from '../types';
 import { STYLE_MODIFIERS, CONSISTENCY_PROMPT } from '../constants';
 
 const getGenAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -27,6 +27,38 @@ const handleApiError = async (error: any) => {
         throw new Error("API Key selection failed or was invalid. Please select a valid API key and try again.");
     }
     throw error;
+};
+
+export const generatePromptSuggestions = async (
+  theme: string,
+  outputType: OutputType,
+): Promise<string[]> => {
+  if (!theme.trim()) {
+    return [];
+  }
+  const ai = getGenAI();
+
+  const systemPrompt = `You are an expert prompt engineer for an advanced AI image and video generation model. A user wants to generate a ${outputType} based on a theme. Provide 5 distinct, detailed, and visually descriptive prompts based on the user's theme.
+
+- For 'Image' type, focus on composition, lighting, art style, and rich detail.
+- For 'Video' type, describe motion, camera angles, pacing, and atmosphere.
+
+Return ONLY the prompts, each on a new line. Do not include titles, numbering, markdown, or any other explanatory text.`;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: `Theme: "${theme}"`,
+    config: {
+        systemInstruction: systemPrompt,
+    }
+  });
+
+  const suggestionsText = response.text;
+  if (!suggestionsText) {
+    throw new Error('Failed to generate prompt suggestions.');
+  }
+
+  return suggestionsText.split('\n').filter(p => p.trim() !== '');
 };
 
 export const generateImages = async (

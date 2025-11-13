@@ -23,13 +23,14 @@ interface ControlsPanelProps {
   setMaintainConsistency: (value: boolean) => void;
   numberOfImages: number;
   setNumberOfImages: (value: number) => void;
+  onOpenPromptModal: () => void;
 }
 
 const ControlsPanel: React.FC<ControlsPanelProps> = ({
   prompts, setPrompts, style, setStyle, aspectRatio, setAspectRatio,
   outputType, setOutputType, template, setTemplate, onGenerate, isLoading,
   referenceImage, onImageUpload, onImageRemove, maintainConsistency, setMaintainConsistency,
-  numberOfImages, setNumberOfImages
+  numberOfImages, setNumberOfImages, onOpenPromptModal
 }) => {
   const videoAspectRatioOptions = ASPECT_RATIO_OPTIONS.filter(
     (option) => option.value === '16:9' || option.value === '9:16'
@@ -119,7 +120,16 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
       </div>
 
       <div>
-        <label htmlFor="prompts" className="block text-lg font-semibold text-text-primary mb-2">{getPromptLabel()}</label>
+        <div className="flex justify-between items-center mb-2">
+            <label htmlFor="prompts" className="block text-lg font-semibold text-text-primary">{getPromptLabel()}</label>
+            <button 
+                onClick={onOpenPromptModal}
+                disabled={isLoading}
+                className="px-3 py-1 text-sm font-semibold bg-brand-light/10 text-brand-light rounded-md hover:bg-brand-light/20 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                Get Ideas ✨
+            </button>
+        </div>
         <textarea
           id="prompts"
           value={prompts}

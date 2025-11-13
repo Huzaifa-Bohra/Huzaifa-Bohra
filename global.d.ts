@@ -2,8 +2,8 @@
 // The previous inlined type was conflicting with the one provided by the execution environment.
 declare global {
   interface Window {
-    // FIX: Added readonly modifier to resolve declaration conflict with the execution environment's typings.
-    readonly aistudio: AIStudio;
+    // FIX: Removed readonly modifier to resolve declaration conflict with the execution environment's typings.
+    aistudio: AIStudio;
     JSZip: any;
   }
 }

@@ -1,10 +1,12 @@
+
+
 // FIX: Implemented the main App component.
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import ControlsPanel from './components/ControlsPanel';
 import OutputGrid from './components/OutputGrid';
 import Spinner from './components/Spinner';
-import { generateImages, generateVideos, editImages, extendVideo, createAnimationFromImages, upscaleImage, addHistoryItem, getHistory, clearHistory } from './services/geminiService';
+import { generateImages, generateVideos, editImages, extendVideo, createAnimationFromImages, upscaleImage, addHistoryItem, getHistory, clearHistory, generatePromptSuggestions } from './services/geminiService';
 import { AspectRatio, GeneratedAsset, ImageStyle, OutputType, TemplatePreset, ReferenceImage, HistoryItem, HistoryAsset } from './types';
 import { TEMPLATE_PROMPTS } from './constants';
 
@@ -74,6 +76,129 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, history, onLoadHist
   );
 };
 
+interface PromptIdeationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onGenerate: (theme: string) => void;
+  suggestions: string[];
+  isLoading: boolean;
+  error: string | null;
+  onUsePrompt: (prompt: string) => void;
+  onAddPrompt: (prompt: string) => void;
+  outputType: OutputType;
+}
+
+const PromptIdeationModal: React.FC<PromptIdeationModalProps> = ({
+  isOpen, onClose, onGenerate, suggestions, isLoading, error, onUsePrompt, onAddPrompt, outputType
+}) => {
+  const [theme, setTheme] = useState('');
+
+  const handleGenerateClick = () => {
+    if (theme.trim()) {
+      onGenerate(theme);
+    }
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleGenerateClick();
+    }
+  };
+
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${isOpen ? '' : 'pointer-events-none'}`} role="dialog" aria-modal="true" aria-labelledby="prompt-modal-title">
+      <div 
+        className={`fixed inset-0 bg-black/70 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`} 
+        onClick={onClose}
+        aria-hidden="true"
+      ></div>
+      
+      <div className={`relative w-full max-w-2xl bg-base-200 shadow-xl rounded-lg transform transition-all duration-300 ease-in-out ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}>
+        <header className="flex items-center justify-between p-4 border-b border-base-300">
+          <h2 id="prompt-modal-title" className="text-xl font-bold text-text-primary">
+            Prompt Idea Generator
+          </h2>
+          <button 
+            onClick={onClose} 
+            className="p-1 rounded-full text-2xl leading-none text-text-secondary hover:bg-base-300 hover:rotate-90 transition-all duration-300" 
+            aria-label="Close prompt ideation modal"
+          >&times;</button>
+        </header>
+        
+        <div className="p-6 space-y-4">
+          <div>
+            <label htmlFor="theme-input" className="block text-md font-semibold text-text-primary mb-2">
+              Enter a basic idea or theme for your {outputType.toLowerCase()}:
+            </label>
+            <div className="flex gap-2">
+              <input 
+                type="text"
+                id="theme-input"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="e.g., a futuristic city at night"
+                className="flex-grow p-2 bg-base-300 text-text-primary rounded-md border border-base-100 focus:ring-2 focus:ring-brand-light focus:border-brand-light transition"
+                disabled={isLoading}
+              />
+              <button
+                onClick={handleGenerateClick}
+                disabled={isLoading || !theme.trim()}
+                className="py-2 px-4 bg-brand-secondary hover:bg-brand-primary text-white font-bold rounded-lg shadow-md transition-all duration-300 ease-in-out disabled:bg-base-300 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Thinking...' : 'Generate'}
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-[200px] bg-base-100 rounded-lg p-4 flex flex-col">
+            {isLoading && (
+              <div className="flex flex-col items-center justify-center h-full text-text-secondary m-auto">
+                <Spinner />
+                <p className="mt-2">Generating creative ideas...</p>
+              </div>
+            )}
+            {error && !isLoading && (
+              <div className="flex items-center justify-center h-full text-red-400 m-auto">
+                <p>Error: {error}</p>
+              </div>
+            )}
+            {!isLoading && !error && suggestions.length === 0 && (
+                <div className="flex items-center justify-center h-full text-text-secondary text-center m-auto">
+                    <p>Your generated prompt suggestions will appear here.</p>
+                </div>
+            )}
+            {!isLoading && suggestions.length > 0 && (
+              <ul className="space-y-3 overflow-y-auto">
+                {suggestions.map((suggestion, index) => (
+                  <li key={index} className="bg-base-300 p-3 rounded-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 animate-fade-in">
+                    <p className="text-text-primary flex-1">{suggestion}</p>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => onAddPrompt(suggestion)}
+                        className="px-3 py-1 text-xs font-semibold bg-brand-light/10 text-brand-light rounded-md hover:bg-brand-light/20 transition-all"
+                      >
+                        + Add
+                      </button>
+                      <button
+                        onClick={() => onUsePrompt(suggestion)}
+                        className="px-3 py-1 text-xs font-semibold bg-brand-secondary/80 text-white rounded-md hover:bg-brand-secondary transition-all"
+                      >
+                        Use
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [outputType, setOutputType] = useState<OutputType>('Image');
   const [prompts, setPrompts] = useState<string>('Cinematic sunrise over a still ocean, golden light spreading across waves, light mist, calm atmosphere, ultra-realistic.');
@@ -98,6 +223,11 @@ const App: React.FC = () => {
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
+
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState<boolean>(false);
+  const [promptSuggestions, setPromptSuggestions] = useState<string[]>([]);
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState<boolean>(false);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
   useEffect(() => {
     setHistory(getHistory());
@@ -537,6 +667,32 @@ const App: React.FC = () => {
     setHistory([]);
   };
 
+  const handleGenerateSuggestions = async (theme: string) => {
+    setIsGeneratingSuggestions(true);
+    setSuggestionError(null);
+    setPromptSuggestions([]);
+    try {
+        const suggestions = await generatePromptSuggestions(theme, outputType);
+        setPromptSuggestions(suggestions);
+    } catch (err: any) {
+        console.error("Failed to get prompt suggestions:", err);
+        setSuggestionError(err.message || "An error occurred while fetching suggestions.");
+    } finally {
+        setIsGeneratingSuggestions(false);
+    }
+  };
+
+  const handleUseSuggestion = (suggestion: string) => {
+      setPrompts(suggestion);
+      setTemplate('Custom');
+      setIsPromptModalOpen(false);
+  };
+
+  const handleAddSuggestion = (suggestion: string) => {
+      setPrompts(prev => (prev.trim() ? `${prev}\n${suggestion}` : suggestion));
+      setTemplate('Custom');
+  };
+
   return (
     <div className="bg-base-100 min-h-screen text-text-primary font-sans">
       <Header outputType={outputType} onToggleHistory={() => setIsHistoryPanelOpen(p => !p)} />
@@ -546,6 +702,17 @@ const App: React.FC = () => {
         onLoadHistory={handleLoadHistory}
         onClearHistory={handleClearHistory}
         onClose={() => setIsHistoryPanelOpen(false)}
+      />
+      <PromptIdeationModal 
+        isOpen={isPromptModalOpen}
+        onClose={() => setIsPromptModalOpen(false)}
+        onGenerate={handleGenerateSuggestions}
+        suggestions={promptSuggestions}
+        isLoading={isGeneratingSuggestions}
+        error={suggestionError}
+        onUsePrompt={handleUseSuggestion}
+        onAddPrompt={handleAddSuggestion}
+        outputType={outputType}
       />
       <main className="container mx-auto p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-8">
@@ -576,6 +743,11 @@ const App: React.FC = () => {
             setMaintainConsistency={setMaintainConsistency}
             numberOfImages={numberOfImages}
             setNumberOfImages={setNumberOfImages}
+            onOpenPromptModal={() => {
+                setIsPromptModalOpen(true);
+                setPromptSuggestions([]);
+                setSuggestionError(null);
+            }}
           />
 
           {isLoading && (
@@ -589,9 +761,10 @@ const App: React.FC = () => {
                   <div className="mt-4 space-y-2">
                     {/* FIX: Replaced Object.keys with Object.entries for better type safety and code clarity, resolving an indexing error. */}
                     {/* FIX: Simplified destructuring in map to avoid type inference issues. */}
+                    {/* FIX: Explicitly typed map parameters to resolve 'unknown' type error for 'progress'. */}
                     {Object.entries(videoLoadingProgress)
                       .sort(([a], [b]) => Number(a) - Number(b)) // Keep order
-                      .map(([index, progress]) => (
+                      .map(([index, progress]: [string, { prompt: string; message: string }]) => (
                           <div key={index} className="text-text-primary font-mono bg-base-300 p-3 rounded-md text-sm">
                             <p className="font-bold truncate" title={progress.prompt}>
                               <span className="text-brand-light">Video {Number(index) + 1}:</span> {progress.prompt.length > 50 ? `${progress.prompt.substring(0, 50)}...` : progress.prompt}
